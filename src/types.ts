@@ -206,6 +206,97 @@ export const ImplementationSchema = z
   .passthrough();
 
 /**
+ * An Audio provided to or from an LLM.
+ */
+export const AudioContentSchema = z
+  .object({
+    type: z.literal("audio"),
+    /**
+     * The base64-encoded audio data.
+     */
+    data: z.string().base64(),
+    /**
+     * The MIME type of the audio. Different providers may support different audio types.
+     */
+    mimeType: z.string(),
+  })
+  .passthrough();
+
+/**
+ * Supported UI component types.
+ */
+export const UIComponentTypeSchema = z.enum([
+  "container",
+  "text",
+  "button",
+  "input",
+  "select",
+  "checkbox",
+  "radio",
+  "textarea",
+  "image",
+  "link",
+  "list",
+  "table",
+  "form",
+  "card",
+  "modal",
+  "tabs",
+  "accordion",
+  "progress",
+  "chart",
+  "custom",
+]);
+
+/**
+ * A UI component that can be rendered by the client.
+ */
+export const UIComponentSchema: z.ZodLazy<z.ZodType<any>> = z.lazy(() =>
+  z
+    .object({
+      /**
+       * The type of UI component to render.
+       */
+      type: UIComponentTypeSchema,
+      /**
+       * Properties specific to the component type.
+       */
+      props: z.record(z.unknown()),
+      /**
+       * Optional child components.
+       */
+      children: z.optional(z.array(UIComponentSchema)),
+      /**
+       * Optional unique identifier for the component.
+       */
+      id: z.optional(z.string()),
+      /**
+       * Optional CSS classes or styling information.
+       */
+      className: z.optional(z.string()),
+      /**
+       * Optional inline styles.
+       */
+      style: z.optional(z.record(z.union([z.string(), z.number()]))),
+    })
+    .passthrough()
+);
+
+/**
+ * UI content that can be rendered by the client.
+ * This allows servers to return structured UI components instead of just text.
+ */
+export const UIContentSchema = z
+  .object({
+    type: z.literal("ui"),
+    /**
+     * The UI component definition using the specified template.
+     */
+    component: UIComponentSchema,
+  })
+  .passthrough();
+
+/**
  * Capabilities a client may support. Known capabilities are defined here, in this schema, but this is not a closed set: any client can define its own, additional capabilities.
  */
 export const ClientCapabilitiesSchema = z
@@ -230,6 +321,105 @@ export const ClientCapabilitiesSchema = z
           listChanged: z.optional(z.boolean()),
         })
         .passthrough(),
+    ),
+    /**
+     * Present if the client supports UI rendering.
+     */
+    ui: z.optional(
+      z
+        .object({
+          /**
+           * Whether the client can render UI components.
+           */
+          rendering: z.optional(z.boolean()),
+          /**
+           * Supported UI component types that the client can render.
+           */
+          supportedComponents: z.optional(z.array(UIComponentTypeSchema)),
+          /**
+           * Whether the client supports interactive UI components.
+           */
+          interactive: z.optional(z.boolean()),
+          /**
+           * Supported platforms for UI rendering.
+           */
+          platforms: z.optional(z.array(z.enum(["web", "mobile", "desktop", "terminal"]))),
+          /**
+           * Whether the client supports UI preferences and customization.
+           */
+          preferences: z.optional(z.boolean()),
+          /**
+           * Supported customization features.
+           */
+          customization: z.optional(
+            z
+              .object({
+                /**
+                 * Whether the client supports theme customization.
+                 */
+                themes: z.optional(z.boolean()),
+                /**
+                 * Whether the client supports color scheme customization.
+                 */
+                colorSchemes: z.optional(z.boolean()),
+                /**
+                 * Whether the client supports typography customization.
+                 */
+                typography: z.optional(z.boolean()),
+                /**
+                 * Whether the client supports layout customization.
+                 */
+                layout: z.optional(z.boolean()),
+                /**
+                 * Whether the client supports accessibility customization.
+                 */
+                accessibility: z.optional(z.boolean()),
+                /**
+                 * Whether the client supports locale/i18n customization.
+                 */
+                localization: z.optional(z.boolean()),
+                /**
+                 * Whether the client supports custom CSS/styling.
+                 */
+                customStyles: z.optional(z.boolean()),
+                /**
+                 * Whether the client supports component-specific overrides.
+                 */
+                componentOverrides: z.optional(z.boolean()),
+              })
+              .passthrough()
+          ),
+          /**
+           * Supported accessibility features.
+           */
+          accessibility: z.optional(
+            z
+              .object({
+                /**
+                 * Whether the client supports high contrast mode.
+                 */
+                highContrast: z.optional(z.boolean()),
+                /**
+                 * Whether the client supports reduced motion.
+                 */
+                reducedMotion: z.optional(z.boolean()),
+                /**
+                 * Whether the client supports screen readers.
+                 */
+                screenReader: z.optional(z.boolean()),
+                /**
+                 * Whether the client supports keyboard navigation.
+                 */
+                keyboardNavigation: z.optional(z.boolean()),
+              })
+              .passthrough()
+          ),
+          /**
+           * Supported interaction modes.
+           */
+          interactions: z.optional(z.array(z.enum(["mouse", "touch", "keyboard", "voice"]))),
+        })
+        .passthrough()
     ),
   })
   .passthrough();
@@ -313,6 +503,31 @@ export const ServerCapabilitiesSchema = z
           listChanged: z.optional(z.boolean()),
         })
         .passthrough(),
+    ),
+    /**
+     * Present if the server supports UI rendering capabilities.
+     */
+    ui: z.optional(
+      z
+        .object({
+          /**
+           * Whether this server supports UI templates.
+           */
+          templates: z.optional(z.boolean()),
+          /**
+           * Whether this server supports UI rendering.
+           */
+          rendering: z.optional(z.boolean()),
+          /**
+           * Whether this server supports UI validation.
+           */
+          validation: z.optional(z.boolean()),
+          /**
+           * Whether this server supports notifications for changes to the UI templates list.
+           */
+          listChanged: z.optional(z.boolean()),
+        })
+        .passthrough()
     ),
   })
   .passthrough();
@@ -594,6 +809,16 @@ export const ResourceUpdatedNotificationSchema = NotificationSchema.extend({
   }),
 });
 
+/**
+ * The contents of a resource, embedded into a prompt or tool call result.
+ */
+export const EmbeddedResourceSchema = z
+  .object({
+    type: z.literal("resource"),
+    resource: z.union([TextResourceContentsSchema, BlobResourceContentsSchema]),
+  })
+  .passthrough();
+
 /* Prompts */
 /**
  * Describes an argument that a prompt can accept.
@@ -697,31 +922,602 @@ export const ImageContentSchema = z
   .passthrough();
 
 /**
- * An Audio provided to or from an LLM.
+ * Schema definition for UI templates, defining what components and properties
+ * are allowed.
  */
-export const AudioContentSchema = z
+export const UITemplateSchemaSchema = z
   .object({
-    type: z.literal("audio"),
     /**
-     * The base64-encoded audio data.
+     * The root component type that this template supports.
      */
-    data: z.string().base64(),
+    rootComponent: UIComponentTypeSchema,
     /**
-     * The MIME type of the audio. Different providers may support different audio types.
+     * Allowed component types within this template.
      */
-    mimeType: z.string(),
+    allowedComponents: z.array(UIComponentTypeSchema),
+    /**
+     * Schema for component properties, following JSON Schema format.
+     */
+    componentSchemas: z.record(
+      z
+        .object({
+          properties: z.optional(z.record(z.object({}).passthrough())),
+          required: z.optional(z.array(z.string())),
+          additionalProperties: z.optional(z.boolean()),
+        })
+        .passthrough()
+    ),
+    /**
+     * Maximum nesting depth allowed for components.
+     */
+    maxDepth: z.optional(z.number().int().min(1)),
+    /**
+     * Whether custom components are allowed.
+     */
+    allowCustomComponents: z.optional(z.boolean()),
+    /**
+     * Styling constraints.
+     */
+    styling: z.optional(
+      z
+        .object({
+          /**
+           * Whether inline styles are allowed.
+           */
+          allowInlineStyles: z.optional(z.boolean()),
+          /**
+           * Allowed CSS classes.
+           */
+          allowedClasses: z.optional(z.array(z.string())),
+          /**
+           * Whether arbitrary CSS classes are allowed.
+           */
+          allowArbitraryClasses: z.optional(z.boolean()),
+        })
+        .passthrough()
+    ),
   })
   .passthrough();
 
 /**
- * The contents of a resource, embedded into a prompt or tool call result.
+ * A UI template that defines the structure and capabilities of UI components
+ * that can be returned by the server.
  */
-export const EmbeddedResourceSchema = z
+export const UITemplateSchema = z
   .object({
-    type: z.literal("resource"),
-    resource: z.union([TextResourceContentsSchema, BlobResourceContentsSchema]),
+    /**
+     * The unique name/identifier of the template.
+     */
+    name: z.string(),
+    /**
+     * A human-readable description of what this template provides.
+     */
+    description: z.optional(z.string()),
+    /**
+     * The schema defining the structure and constraints of UI components
+     * that can be created with this template.
+     */
+    schema: UITemplateSchemaSchema,
+    /**
+     * Optional metadata about the template.
+     */
+    metadata: z.optional(
+      z
+        .object({
+          /**
+           * The version of this template.
+           */
+          version: z.optional(z.string()),
+          /**
+           * Tags or categories for this template.
+           */
+          tags: z.optional(z.array(z.string())),
+          /**
+           * Author or source of the template.
+           */
+          author: z.optional(z.string()),
+        })
+        .passthrough()
+    ),
   })
   .passthrough();
+
+/* UI-related requests and responses */
+
+/**
+ * Request to list available UI templates.
+ */
+export const ListUITemplatesRequestSchema = PaginatedRequestSchema.extend({
+  method: z.literal("ui/templates/list"),
+});
+
+/**
+ * Response containing available UI templates.
+ */
+export const ListUITemplatesResultSchema = PaginatedResultSchema.extend({
+  templates: z.array(UITemplateSchema),
+});
+
+/**
+ * Request to get a specific UI template.
+ */
+export const GetUITemplateRequestSchema = RequestSchema.extend({
+  method: z.literal("ui/templates/get"),
+  params: BaseRequestParamsSchema.extend({
+    /**
+     * The name of the UI template to retrieve.
+     */
+    name: z.string(),
+  }),
+});
+
+/**
+ * Response containing the requested UI template.
+ */
+export const GetUITemplateResultSchema = ResultSchema.extend({
+  template: UITemplateSchema,
+});
+
+/**
+ * Request to render UI using a specific template.
+ */
+export const RenderUIRequestSchema = RequestSchema.extend({
+  method: z.literal("ui/render"),
+  params: BaseRequestParamsSchema.extend({
+    /**
+     * The name of the template to use for rendering.
+     */
+    templateName: z.string(),
+    /**
+     * Data to populate the UI template.
+     */
+    data: z.optional(z.record(z.unknown())),
+    /**
+     * Optional context for rendering.
+     */
+    context: z.optional(
+      z
+        .object({
+          /**
+           * The target platform or environment for rendering.
+           */
+          platform: z.optional(z.enum(["web", "mobile", "desktop", "terminal"])),
+          /**
+           * Viewport or container constraints.
+           */
+          viewport: z.optional(
+            z
+              .object({
+                width: z.optional(z.number().int().min(1)),
+                height: z.optional(z.number().int().min(1)),
+              })
+              .passthrough()
+          ),
+          /**
+           * Theme or styling preferences.
+           */
+          theme: z.optional(z.enum(["light", "dark", "auto"])),
+        })
+        .passthrough()
+    ),
+    /**
+     * Client-specific customization preferences.
+     */
+    preferences: z.optional(
+      z
+        .object({
+          /**
+           * Preferred component variants or styles.
+           */
+          componentVariants: z.optional(z.record(z.string())),
+          /**
+           * Color scheme preferences.
+           */
+          colorScheme: z.optional(
+            z
+              .object({
+                primary: z.optional(z.string()),
+                secondary: z.optional(z.string()),
+                accent: z.optional(z.string()),
+                background: z.optional(z.string()),
+                surface: z.optional(z.string()),
+                text: z.optional(z.string()),
+              })
+              .passthrough()
+          ),
+          /**
+           * Typography preferences.
+           */
+          typography: z.optional(
+            z
+              .object({
+                fontFamily: z.optional(z.string()),
+                fontSize: z.optional(z.enum(["small", "medium", "large"])),
+                fontWeight: z.optional(z.enum(["light", "normal", "bold"])),
+              })
+              .passthrough()
+          ),
+          /**
+           * Spacing and layout preferences.
+           */
+          layout: z.optional(
+            z
+              .object({
+                density: z.optional(z.enum(["compact", "comfortable", "spacious"])),
+                borderRadius: z.optional(z.enum(["none", "small", "medium", "large"])),
+                shadows: z.optional(z.boolean()),
+              })
+              .passthrough()
+          ),
+          /**
+           * Accessibility preferences.
+           */
+          accessibility: z.optional(
+            z
+              .object({
+                highContrast: z.optional(z.boolean()),
+                reducedMotion: z.optional(z.boolean()),
+                screenReader: z.optional(z.boolean()),
+                keyboardNavigation: z.optional(z.boolean()),
+              })
+              .passthrough()
+          ),
+          /**
+           * Custom CSS variables or overrides.
+           */
+          customStyles: z.optional(z.record(z.string())),
+          /**
+           * Locale and internationalization preferences.
+           */
+          locale: z.optional(
+            z
+              .object({
+                language: z.optional(z.string()),
+                region: z.optional(z.string()),
+                direction: z.optional(z.enum(["ltr", "rtl"])),
+                dateFormat: z.optional(z.string()),
+                numberFormat: z.optional(z.string()),
+              })
+              .passthrough()
+          ),
+        })
+        .passthrough()
+    ),
+    /**
+     * Component-specific overrides.
+     */
+    overrides: z.optional(
+      z
+        .object({
+          /**
+           * Override specific component properties.
+           */
+          components: z.optional(
+            z.record(
+              z
+                .object({
+                  props: z.optional(z.record(z.unknown())),
+                  style: z.optional(z.record(z.union([z.string(), z.number()]))),
+                  className: z.optional(z.string()),
+                })
+                .passthrough()
+            )
+          ),
+          /**
+           * Global style overrides.
+           */
+          globalStyles: z.optional(z.record(z.record(z.string()))),
+        })
+        .passthrough()
+    ),
+  }),
+});
+
+/**
+ * Response containing rendered UI.
+ */
+export const RenderUIResultSchema = ResultSchema.extend({
+  /**
+   * The rendered UI component.
+   */
+  ui: UIComponentSchema,
+  /**
+   * Optional metadata about the rendered UI.
+   */
+  metadata: z.optional(
+    z
+      .object({
+        /**
+         * The template used for rendering.
+         */
+        templateName: z.string(),
+        /**
+         * Version of the template used.
+         */
+        templateVersion: z.optional(z.string()),
+        /**
+         * Estimated rendering complexity or size.
+         */
+        complexity: z.optional(z.enum(["low", "medium", "high"])),
+      })
+      .passthrough()
+  ),
+});
+
+/**
+ * Request to validate a UI component against a template.
+ */
+export const ValidateUIRequestSchema = RequestSchema.extend({
+  method: z.literal("ui/validate"),
+  params: BaseRequestParamsSchema.extend({
+    /**
+     * The UI component to validate.
+     */
+    component: UIComponentSchema,
+    /**
+     * The template to validate against.
+     */
+    templateName: z.string(),
+  }),
+});
+
+/**
+ * Response containing validation results.
+ */
+export const ValidateUIResultSchema = ResultSchema.extend({
+  /**
+   * Whether the UI component is valid.
+   */
+  valid: z.boolean(),
+  /**
+   * Validation errors, if any.
+   */
+  errors: z.optional(
+    z.array(
+      z
+        .object({
+          /**
+           * Path to the invalid component or property.
+           */
+          path: z.string(),
+          /**
+           * Description of the validation error.
+           */
+          message: z.string(),
+          /**
+           * Error code for programmatic handling.
+           */
+          code: z.optional(z.string()),
+        })
+        .passthrough()
+    )
+  ),
+  /**
+   * Validation warnings, if any.
+   */
+  warnings: z.optional(
+    z.array(
+      z
+        .object({
+          /**
+           * Path to the component or property with warnings.
+           */
+          path: z.string(),
+          /**
+           * Description of the warning.
+           */
+          message: z.string(),
+          /**
+           * Warning code for programmatic handling.
+           */
+          code: z.optional(z.string()),
+        })
+        .passthrough()
+    )
+  ),
+});
+
+/**
+ * Request to set client UI preferences that should be applied to all future UI rendering.
+ */
+export const SetUIPreferencesRequestSchema = RequestSchema.extend({
+  method: z.literal("ui/preferences/set"),
+  params: BaseRequestParamsSchema.extend({
+    /**
+     * Global UI preferences to apply to all future rendering.
+     */
+    preferences: z
+      .object({
+        /**
+         * Default theme preference.
+         */
+        defaultTheme: z.optional(z.enum(["light", "dark", "auto"])),
+        /**
+         * Default platform context.
+         */
+        defaultPlatform: z.optional(z.enum(["web", "mobile", "desktop", "terminal"])),
+        /**
+         * Color scheme preferences.
+         */
+        colorScheme: z.optional(
+          z
+            .object({
+              primary: z.optional(z.string()),
+              secondary: z.optional(z.string()),
+              accent: z.optional(z.string()),
+              background: z.optional(z.string()),
+              surface: z.optional(z.string()),
+              text: z.optional(z.string()),
+            })
+            .passthrough()
+        ),
+        /**
+         * Typography preferences.
+         */
+        typography: z.optional(
+          z
+            .object({
+              fontFamily: z.optional(z.string()),
+              fontSize: z.optional(z.enum(["small", "medium", "large"])),
+              fontWeight: z.optional(z.enum(["light", "normal", "bold"])),
+            })
+            .passthrough()
+        ),
+        /**
+         * Layout preferences.
+         */
+        layout: z.optional(
+          z
+            .object({
+              density: z.optional(z.enum(["compact", "comfortable", "spacious"])),
+              borderRadius: z.optional(z.enum(["none", "small", "medium", "large"])),
+              shadows: z.optional(z.boolean()),
+            })
+            .passthrough()
+        ),
+        /**
+         * Accessibility preferences.
+         */
+        accessibility: z.optional(
+          z
+            .object({
+              highContrast: z.optional(z.boolean()),
+              reducedMotion: z.optional(z.boolean()),
+              screenReader: z.optional(z.boolean()),
+              keyboardNavigation: z.optional(z.boolean()),
+            })
+            .passthrough()
+        ),
+        /**
+         * Locale preferences.
+         */
+        locale: z.optional(
+          z
+            .object({
+              language: z.optional(z.string()),
+              region: z.optional(z.string()),
+              direction: z.optional(z.enum(["ltr", "rtl"])),
+              dateFormat: z.optional(z.string()),
+              numberFormat: z.optional(z.string()),
+            })
+            .passthrough()
+        ),
+        /**
+         * Component behavior preferences.
+         */
+        behavior: z.optional(
+          z
+            .object({
+              /**
+               * Whether to enable animations.
+               */
+              animations: z.optional(z.boolean()),
+              /**
+               * Whether to auto-focus interactive elements.
+               */
+              autoFocus: z.optional(z.boolean()),
+              /**
+               * Default interaction mode.
+               */
+              interactionMode: z.optional(z.enum(["mouse", "touch", "keyboard"])),
+              /**
+               * Whether to show tooltips.
+               */
+              showTooltips: z.optional(z.boolean()),
+            })
+            .passthrough()
+        ),
+      })
+      .passthrough(),
+  }),
+});
+
+/**
+ * Request to get current client UI preferences.
+ */
+export const GetUIPreferencesRequestSchema = RequestSchema.extend({
+  method: z.literal("ui/preferences/get"),
+});
+
+/**
+ * Response containing current UI preferences.
+ */
+export const GetUIPreferencesResultSchema = ResultSchema.extend({
+  preferences: z
+    .object({
+      defaultTheme: z.optional(z.enum(["light", "dark", "auto"])),
+      defaultPlatform: z.optional(z.enum(["web", "mobile", "desktop", "terminal"])),
+      colorScheme: z.optional(
+        z
+          .object({
+            primary: z.optional(z.string()),
+            secondary: z.optional(z.string()),
+            accent: z.optional(z.string()),
+            background: z.optional(z.string()),
+            surface: z.optional(z.string()),
+            text: z.optional(z.string()),
+          })
+          .passthrough()
+      ),
+      typography: z.optional(
+        z
+          .object({
+            fontFamily: z.optional(z.string()),
+            fontSize: z.optional(z.enum(["small", "medium", "large"])),
+            fontWeight: z.optional(z.enum(["light", "normal", "bold"])),
+          })
+          .passthrough()
+      ),
+      layout: z.optional(
+        z
+          .object({
+            density: z.optional(z.enum(["compact", "comfortable", "spacious"])),
+            borderRadius: z.optional(z.enum(["none", "small", "medium", "large"])),
+            shadows: z.optional(z.boolean()),
+          })
+          .passthrough()
+      ),
+      accessibility: z.optional(
+        z
+          .object({
+            highContrast: z.optional(z.boolean()),
+            reducedMotion: z.optional(z.boolean()),
+            screenReader: z.optional(z.boolean()),
+            keyboardNavigation: z.optional(z.boolean()),
+          })
+          .passthrough()
+      ),
+      locale: z.optional(
+        z
+          .object({
+            language: z.optional(z.string()),
+            region: z.optional(z.string()),
+            direction: z.optional(z.enum(["ltr", "rtl"])),
+            dateFormat: z.optional(z.string()),
+            numberFormat: z.optional(z.string()),
+          })
+          .passthrough()
+      ),
+      behavior: z.optional(
+        z
+          .object({
+            animations: z.optional(z.boolean()),
+            autoFocus: z.optional(z.boolean()),
+            interactionMode: z.optional(z.enum(["mouse", "touch", "keyboard"])),
+            showTooltips: z.optional(z.boolean()),
+          })
+          .passthrough()
+      ),
+    })
+    .passthrough(),
+});
+
+/**
+ * Notification that UI templates have changed.
+ */
+export const UITemplatesListChangedNotificationSchema = NotificationSchema.extend({
+  method: z.literal("notifications/ui/templates/list_changed"),
+});
 
 /**
  * Describes a message returned as part of a prompt.
@@ -733,6 +1529,7 @@ export const PromptMessageSchema = z
       TextContentSchema,
       ImageContentSchema,
       AudioContentSchema,
+      UIContentSchema,
       EmbeddedResourceSchema,
     ]),
   })
@@ -884,6 +1681,7 @@ export const CallToolResultSchema = ResultSchema.extend({
       TextContentSchema,
       ImageContentSchema,
       AudioContentSchema,
+      UIContentSchema,
       EmbeddedResourceSchema,
     ])).default([]),
 
@@ -1030,7 +1828,7 @@ export const ModelPreferencesSchema = z
 export const SamplingMessageSchema = z
   .object({
     role: z.enum(["user", "assistant"]),
-    content: z.union([TextContentSchema, ImageContentSchema, AudioContentSchema]),
+    content: z.union([TextContentSchema, ImageContentSchema, AudioContentSchema, UIContentSchema]),
   })
   .passthrough();
 
@@ -1215,6 +2013,12 @@ export const ClientRequestSchema = z.union([
   UnsubscribeRequestSchema,
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListUITemplatesRequestSchema,
+  GetUITemplateRequestSchema,
+  RenderUIRequestSchema,
+  ValidateUIRequestSchema,
+  SetUIPreferencesRequestSchema,
+  GetUIPreferencesRequestSchema,
 ]);
 
 export const ClientNotificationSchema = z.union([
@@ -1222,6 +2026,7 @@ export const ClientNotificationSchema = z.union([
   ProgressNotificationSchema,
   InitializedNotificationSchema,
   RootsListChangedNotificationSchema,
+  UITemplatesListChangedNotificationSchema,
 ]);
 
 export const ClientResultSchema = z.union([
@@ -1245,6 +2050,7 @@ export const ServerNotificationSchema = z.union([
   ResourceListChangedNotificationSchema,
   ToolListChangedNotificationSchema,
   PromptListChangedNotificationSchema,
+  UITemplatesListChangedNotificationSchema,
 ]);
 
 export const ServerResultSchema = z.union([
@@ -1258,6 +2064,11 @@ export const ServerResultSchema = z.union([
   ReadResourceResultSchema,
   CallToolResultSchema,
   ListToolsResultSchema,
+  ListUITemplatesResultSchema,
+  GetUITemplateResultSchema,
+  RenderUIResultSchema,
+  ValidateUIResultSchema,
+  GetUIPreferencesResultSchema,
 ]);
 
 export class McpError extends Error {
@@ -1387,6 +2198,25 @@ export type Root = Infer<typeof RootSchema>;
 export type ListRootsRequest = Infer<typeof ListRootsRequestSchema>;
 export type ListRootsResult = Infer<typeof ListRootsResultSchema>;
 export type RootsListChangedNotification = Infer<typeof RootsListChangedNotificationSchema>;
+
+/* UI */
+export type UIComponentType = Infer<typeof UIComponentTypeSchema>;
+export type UIComponent = Infer<typeof UIComponentSchema>;
+export type UIContent = Infer<typeof UIContentSchema>;
+export type UITemplateSchemaType = Infer<typeof UITemplateSchemaSchema>;
+export type UITemplate = Infer<typeof UITemplateSchema>;
+export type ListUITemplatesRequest = Infer<typeof ListUITemplatesRequestSchema>;
+export type ListUITemplatesResult = Infer<typeof ListUITemplatesResultSchema>;
+export type GetUITemplateRequest = Infer<typeof GetUITemplateRequestSchema>;
+export type GetUITemplateResult = Infer<typeof GetUITemplateResultSchema>;
+export type RenderUIRequest = Infer<typeof RenderUIRequestSchema>;
+export type RenderUIResult = Infer<typeof RenderUIResultSchema>;
+export type ValidateUIRequest = Infer<typeof ValidateUIRequestSchema>;
+export type ValidateUIResult = Infer<typeof ValidateUIResultSchema>;
+export type SetUIPreferencesRequest = Infer<typeof SetUIPreferencesRequestSchema>;
+export type GetUIPreferencesRequest = Infer<typeof GetUIPreferencesRequestSchema>;
+export type GetUIPreferencesResult = Infer<typeof GetUIPreferencesResultSchema>;
+export type UITemplatesListChangedNotification = Infer<typeof UITemplatesListChangedNotificationSchema>;
 
 /* Client messages */
 export type ClientRequest = Infer<typeof ClientRequestSchema>;
